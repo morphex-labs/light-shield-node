@@ -31,7 +31,6 @@ router.use("*", async (req, res, next) => {
 
   gwSign = false; // do not allow gwSign for shiled nodes
   const requestData = { app, method, params, nSign, mode, gwSign };
-  // console.log("request arrived %o", requestData);
 
   // console.log(`forwarding request to ${SHIELD_FORWARD_URL}`, requestData);
   const result = await axios
@@ -42,9 +41,10 @@ router.use("*", async (req, res, next) => {
     try {
       await confirmResponse(requestData, result.result);
     } catch (ex) {
+      console.log(ex);
       return res.json({
         success: false,
-        error: { ex },
+        error: ex
       });
     }
   }
