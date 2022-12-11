@@ -18,6 +18,7 @@ async function runMounApp(request) {
     throw { message: `App not found on shield node` };
   }
 
+  //TODO: set dynamic params(APP_ID, APP_CID, ...)
   let muonApp = require(appPath);
   let newRequest = {
     app,
@@ -26,6 +27,10 @@ async function runMounApp(request) {
   };
 
   let result = await muonApp.onRequest(newRequest);
+
+  // TODO: handle timestamp
+  // If the timestamp is on the signature, the app should consider
+  // timestamp of the response
   const appSignParams = muonApp.signParams(newRequest, result);
   return appSignParams;
 }
@@ -35,11 +40,11 @@ async function confirmResponse(requestData, appResponse) {
   const responseHash = soliditySha3(appResponse.data.signParams.slice(2));
   appResponse.shieldAddress = process.env.SIGN_WALLET_ADDRESS;
 
-  // console.log('responseHash', responseHash);
   const appSignParams = await runMounApp(requestData);
   const shieldHash = soliditySha3(appSignParams);
 
-  // TODO: It does not work for the apps 
+  // TODO: this does not work for non-deterministic apps
+  // for example price feeds.
   if (shieldHash != responseHash) {
     throw { message: `Shield node confirmation failed` };
   }
