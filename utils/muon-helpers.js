@@ -39,6 +39,7 @@ async function confirmResponse(requestData, appResponse) {
   const appSignParams = await runMounApp(requestData);
   const shieldHash = soliditySha3(appSignParams);
 
+  // TODO: It does not work for the apps 
   if (shieldHash != responseHash) {
     throw { message: `Shield node confirmation failed` };
   }
