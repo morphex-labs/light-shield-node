@@ -23,7 +23,11 @@ async function runMounApp(request, appResponse) {
   let newRequest = {
     app,
     method,
-    data: { params, timestamp: appResponse.startedAt },
+    data: {
+      params,
+      timestamp: appResponse.startedAt,
+      result: appResponse.data.result
+    },
   };
 
   let result = await muonApp.onRequest(newRequest);
