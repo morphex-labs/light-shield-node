@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
+axios.defaults.headers.post['accept-encoding'] = "";
 const bodyParser = require("body-parser");
 const PORT = process.env.SERVER_PORT || 3000;
 const SHIELD_FORWARD_URL = process.env.SHIELD_FORWARD_URL;
