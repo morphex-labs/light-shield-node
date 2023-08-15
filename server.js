@@ -4,9 +4,12 @@ const axios = require("axios");
 axios.defaults.headers.post['accept-encoding'] = "";
 const bodyParser = require("body-parser");
 const PORT = process.env.SERVER_PORT || 3000;
-const SHIELD_FORWARD_URL = process.env.SHIELD_FORWARD_URL;
+const SHIELD_FORWARD_URLS = process.env.SHIELD_FORWARD_URLS;
 const { confirmResponse } = require("./utils/muon-helpers");
 global.MuonAppUtils = require("./muonapp-utils");
+
+const originalForwardUrls = SHIELD_FORWARD_URLS.split(",");
+let forwardUrls = originalForwardUrls;
 
 const router = express();
 router.use(bodyParser.json());
@@ -33,10 +36,22 @@ router.use("*", async (req, res, next) => {
   gwSign = false; // do not allow gwSign for shiled nodes
   const requestData = { app, method, params, nSign, mode, gwSign };
 
-  // console.log(`forwarding request to ${SHIELD_FORWARD_URL}`, requestData);
+    if (forwardUrls.length == 0)
+        forwardUrls = originalForwardUrls;
+
+    let forwardUrl = forwardUrls[0];
+
   const result = await axios
-    .post(SHIELD_FORWARD_URL, requestData)
-    .then(({ data }) => data);
+    .post(forwardUrl, requestData)
+    .then(({ data }) => data)
+      .catch(error=>{
+          if (error.code === 'ECONNREFUSED'||error.code === 'ECONNABORTED')
+              forwardUrls.shift();
+          return res.json({
+              success: false,
+              error
+          });
+      });
 
   if (result.success) {
     try {
