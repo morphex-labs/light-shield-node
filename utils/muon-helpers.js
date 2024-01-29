@@ -1,5 +1,11 @@
 const soliditySha3 = require("../muonapp-utils/utils/soliditySha3");
 const crypto = require("../muonapp-utils/utils/crypto");
+const Web3 = require("web3");
+const ethSigUtil = require("@metamask/eth-sig-util");
+
+const web3 = new Web3();
+
+
 
 function moduleIsAvailable(path) {
   try {
@@ -26,7 +32,7 @@ async function runMounApp(request, appResponse) {
     data: {
       params,
       timestamp: appResponse.startedAt,
-      result: appResponse.data.result
+      result: appResponse.data.result,
     },
   };
 
@@ -57,6 +63,40 @@ async function confirmResponse(requestData, appResponse) {
   appResponse.nodeSignature = cryptoSign;
 }
 
+function muonFeeSignature(PK, appId) {
+  let timestamp = Math.floor(Date.now());
+  let wallet = web3.eth.accounts.privateKeyToAccount(PK);
+
+  const address = wallet.address;
+  const privateKey = wallet.privateKey.substr(2);
+
+  let eip712TypedData = {
+    types: {
+      EIP712Domain: [{ name: "name", type: "string" }],
+      Message: [
+        { type: "address", name: "address" },
+        { type: "uint64", name: "timestamp" },
+        { type: "uint256", name: "appId" },
+      ],
+    },
+    domain: { name: "Muonize" },
+    primaryType: "Message",
+    message: { address: address, timestamp, appId },
+  };
+  const sign = ethSigUtil.signTypedData({
+    privateKey: privateKey,
+    data: eip712TypedData,
+    version: ethSigUtil.SignTypedDataVersion.V4,
+  });
+
+  return {
+    spender: wallet.address,
+    timestamp,
+    signature: sign    
+  }
+}
+
 module.exports = {
   confirmResponse,
+  muonFeeSignature
 };

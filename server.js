@@ -1,11 +1,12 @@
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
-axios.defaults.headers.post['accept-encoding'] = "";
+axios.defaults.headers.post["accept-encoding"] = "";
 const bodyParser = require("body-parser");
 const PORT = process.env.SERVER_PORT || 3000;
 const SHIELD_FORWARD_URLS = process.env.SHIELD_FORWARD_URLS;
-const { confirmResponse } = require("./utils/muon-helpers");
+const FEE_PK = process.env.FEE_PRIVATE_KEY;
+const { confirmResponse, muonFeeSignature } = require("./utils/muon-helpers");
 global.MuonAppUtils = require("./muonapp-utils");
 
 const originalForwardUrls = SHIELD_FORWARD_URLS.split(",");
@@ -24,7 +25,15 @@ router.use("*", async (req, res, next) => {
     ...req.query,
     ...req.body,
   };
-  let { app, method, params = {}, nSign, mode = "sign", gwSign } = mixed;
+  let {
+    app,
+    method,
+    fee = {},
+    params = {},
+    nSign,
+    mode = "sign",
+    gwSign,
+  } = mixed;
 
   if (!["sign", "view"].includes(mode)) {
     return res.json({
@@ -34,24 +43,33 @@ router.use("*", async (req, res, next) => {
   }
 
   gwSign = false; // do not allow gwSign for shiled nodes
-  const requestData = { app, method, params, nSign, mode, gwSign };
 
-    if (forwardUrls.length == 0)
-        forwardUrls = originalForwardUrls;
+  // TODO: Implement user authentication and rate limiting for each project.
+  // This will prevent attackers from sending multiple requests and depleting the fees
+  if (FEE_PK) {
+    fee = muonFeeSignature(FEE_PK, process.env.FEE_APP_ID);
+  }
+  
+  let requestData = { app, method, params, nSign, mode, gwSign };
+  if (fee && fee.spender) {
+    requestData["fee"] = fee;
+  }
+  
+  if (forwardUrls.length == 0) forwardUrls = originalForwardUrls;
 
-    let forwardUrl = forwardUrls[0];
+  let forwardUrl = forwardUrls[0];
 
   const result = await axios
     .post(forwardUrl, requestData)
     .then(({ data }) => data)
-      .catch(error=>{
-          if (error.code === 'ECONNREFUSED'||error.code === 'ECONNABORTED')
-              forwardUrls.shift();
-          return res.json({
-              success: false,
-              error
-          });
+    .catch((error) => {
+      if (error.code === "ECONNREFUSED" || error.code === "ECONNABORTED")
+        forwardUrls.shift();
+      return res.json({
+        success: false,
+        error,
       });
+    });
 
   if (result.success) {
     try {
@@ -60,10 +78,11 @@ router.use("*", async (req, res, next) => {
       console.log(ex);
       return res.json({
         success: false,
-        error: ex
+        error: ex,
       });
     }
   }
+  // console.log(result);
   return res.json(result);
 });
 
