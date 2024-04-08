@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
+const cors = require('cors');
 axios.defaults.headers.post["accept-encoding"] = "";
 const bodyParser = require("body-parser");
 const PORT = process.env.SERVER_PORT || 3000;
@@ -15,6 +16,9 @@ let forwardUrls = originalForwardUrls;
 const router = express();
 router.use(bodyParser.json());
 router.use(bodyParser.urlencoded({ extended: true }));
+router.use(cors({
+  origin: '*'
+}));
 
 router.get("/", (req, res) => {
   res.json({ message: "Muon Light Shield Node" });
