@@ -86,8 +86,12 @@ router.use("*", async (req, res, next) => {
       });
     }
   }
-  // console.log(result);
-  return res.json(result);
+
+  try {
+    return res.json(result);
+  } catch (ex) {
+    console.log(ex);
+  }
 });
 
 router.listen(PORT, () => {
