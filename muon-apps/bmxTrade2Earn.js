@@ -41,23 +41,36 @@ module.exports = {
     },
 
 
-    getDailyVolume: async function (user, pair, day, subgraphEndpoint) {
+    getWeeklyVolume: async function (user, epoch, n, subgraphEndpoint) {
         const totalQuery = `{
-            totalVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "0x0000000000000000000000000000000000000000", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
-              id
-              user
-              amountAsUser
-              day
-            } 
+          totalVolume: weeklyGeneratedVolumes(
+            where: {
+              epoch: ${epoch},
+              user_not: "0x0000000000000000000000000000000000000000"
+            }
+            first: ${n}
+            orderBy: amountAsUser
+            orderDirection: desc
+          ) {
+            id
+            user
+            amountAsUser
+            epoch
+          }
         }`
 
         const userQuery = `{
-            userVolume: dailyGeneratedVolumes(where:{day: ${day}, user: "${user.toLowerCase()}", pair: "${pair.toLowerCase()}", amountAsReferrer_gt: "0"}) {
-              id
-              user
-              amountAsUser
-              day
-            } 
+          userVolume: weeklyGeneratedVolumes(
+            where:{
+              epoch: ${epoch},
+              user: "${user.toLowerCase()}"
+            }
+          ) {
+            id
+            user
+            amountAsUser
+            epoch
+          } 
         }`
 
         const totalData = (await this.postQuery(totalQuery, subgraphEndpoint)).totalVolume
@@ -66,7 +79,12 @@ module.exports = {
         if (userData.length == 0) throw { message: `NO_RECORD_FOR_USER` }
         if (totalData.length == 0) throw { message: `NO_RECORD_FOR_PLATFORM` }
 
-        const totalVolume = totalData[0].amountAsUser
+        let totalSum = new BN(0)
+        totalData.forEach(record => {
+            totalSum = totalSum.add(new BN(record.amountAsUser))
+        })
+
+        const totalVolume = totalSum.toString()
         const userVolume = userData[0].amountAsUser
 
         return {
@@ -86,20 +104,20 @@ module.exports = {
                 let {
                     projectId,
                     user,
-                    pair,
-                    day
+                    epoch,
+                    n
                 } = params
 
-                if (parseInt(day) < 0) throw { message: 'NEGATIVE_DAY' }
+                if (parseInt(epoch) < 0) throw { message: 'NEGATIVE_WEEK' }
 
                 const { subgraphEndpoint } = await this.fetchProject(projectId)
-                const { userVolume, totalVolume } = await this.getDailyVolume(user, pair, day, subgraphEndpoint)
+                const { userVolume, totalVolume } = await this.getWeeklyVolume(user, epoch, n, subgraphEndpoint)
 
                 return {
                     projectId,
                     user,
-                    pair,
-                    day,
+                    epoch,
+                    n,
                     userVolume,
                     totalVolume,
                 }
@@ -117,15 +135,15 @@ module.exports = {
      * should be verified on chain.
      */
     signParams: function (request, result) {
-        let { method } = request;
+        let { method } = request
         switch (method) {
 
             case 'userVolume': {
                 let {
                     projectId,
                     user,
-                    pair,
-                    day,
+                    epoch,
+                    n,
                     userVolume,
                     totalVolume,
                 } = result
@@ -138,8 +156,8 @@ module.exports = {
                 return [
                     { type: 'bytes32', value: projectId },
                     { type: 'address', value: user },
-                    { type: 'address', value: pair },
-                    { type: 'uint256', value: day },
+                    { type: 'uint256', value: epoch },
+                    { type: 'uint256', value: n },
                     { type: 'uint256', value: request.data.result.userVolume },
                     { type: 'uint256', value: request.data.result.totalVolume },
                     { type: 'uint256', value: request.data.timestamp },
